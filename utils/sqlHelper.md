@@ -1,5 +1,18 @@
 ## Examples of ConnDatabase Methods Usage
 
+### Requirement
+
+1. Install the following Python libraries:
+    - mysqlclient
+    - python-dotenv
+
+2. Create a `.env` file under the root folder to contain all the connection information of the database like the following:
+```
+DB_HOST=127.0.0.1
+DB_USERNAME=root
+DB_PASSWORD=12345678
+```
+
 ### Database Connection Establish.
 
 ```python
@@ -70,7 +83,7 @@ active_users = db.select_all(
 all_users = db.select_all(table_name="users")
 ```
 
-Special select.
+Special select. (Don't suggest to use since complexity. Put examples here only for dispaly.)
 ```python
 # Simple JOIN
 orders_with_customers = db.select_with_join(
