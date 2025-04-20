@@ -1,0 +1,11 @@
+**/__pycache__
+bin
+pyvenv.cfg
+**/.env
+**/.DS_Store
+**/test.py
+**/test.json
+log/**
+temp/**
+lib
+share
