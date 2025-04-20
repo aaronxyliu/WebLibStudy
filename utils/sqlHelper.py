@@ -510,17 +510,6 @@ class ConnDatabase:
         Raises:
             ValueError: For invalid table name or dangerous conditions
             MySQLdb.Error: If the query fails
-            
-        Example:
-            # Delete inactive users older than 1 year
-            db.delete_all(
-                "users",
-                "status = %s AND last_login < %s",
-                ("inactive", "2022-01-01")
-            )
-            
-            # Batch delete (100 at a time)
-            db.delete_all("temp_data", batch_size=100)
         """
         self._validate_table_name(table_name)
         
@@ -638,17 +627,6 @@ class ConnDatabase:
         
         Returns:
             List of grouped results
-            
-        Example:
-            db.select_with_group(
-                table_name="orders",
-                group_fields=["customer_id", "YEAR(order_date)"],
-                aggregate_fields=[
-                    {'field': "id", 'func': "COUNT", 'alias': "order_count"},
-                    {'field': "amount", 'func': "SUM", 'alias': "total_spent"}
-                ],
-                having="total_spent > %s",
-                having_values=(1000,)
             )
         """
         self._validate_table_name(table_name)
@@ -710,16 +688,6 @@ class ConnDatabase:
         Raises:
             ValueError: For invalid table/column names
             MySQLdb.Error: If the operation fails
-            
-        Examples:
-            # Simple primary key
-            db.set_primary_key("users", "id")
-            
-            # Composite key
-            db.set_primary_key("order_items", ["order_id", "product_id"])
-            
-            # Replace existing key
-            db.set_primary_key("logs", "uuid", drop_existing=True)
         """
         self._validate_table_name(table_name)
         
@@ -812,19 +780,6 @@ class ConnDatabase:
         Raises:
             ValueError: If input validation fails
             MySQLdb.Error: If the operation fails
-            
-        Example:
-            # Basic combination
-            db.combine_tables("all_orders", ["orders_2022", "orders_2023"])
-            
-            # With filtering and chunking
-            db.combine_tables(
-                "active_users",
-                ["users_us", "users_eu"],
-                where_clause="status = %s",
-                where_values=("active",),
-                chunk_size=10000
-            )
         """
         # Validate inputs
         if not old_tables:

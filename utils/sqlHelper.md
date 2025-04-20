@@ -206,8 +206,8 @@ db.set_primary_key(
 ```python
 # Basic combination
 row_count = db.combine_tables(
-    "all_products",
-    ["products_2022", "products_2023"]
+    "all_products", # new table
+    ["products_2022", "products_2023"]  # old tables
 )
 print(f"Combined {row_count} rows")
 
