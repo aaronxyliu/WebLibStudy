@@ -27,6 +27,8 @@ class getLogger:
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         logpath = os.path.abspath(f'{dir_path}/../log')
+        if not os.path.exists(logpath):
+            os.makedirs(logpath)
         logfiles = os.listdir(logpath)
         index_set = set()
         for filename in logfiles:

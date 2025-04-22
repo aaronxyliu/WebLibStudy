@@ -201,7 +201,9 @@ db.set_primary_key(
 )
 ```
 
-### Table combine
+### Table Manipulate
+
+Combination.
 
 ```python
 # Basic combination
@@ -224,5 +226,71 @@ row_count = db.combine_tables(
     "historical_data",
     ["data_q1", "data_q2", "data_q3", "data_q4"],
     chunk_size=50000
+)
+```
+
+Duplication.
+```python
+# Full table copy (structure + data + indexes)
+row_count = db.duplicate_table("customers", "customers_backup")
+print(f"Copied {row_count} rows")
+
+# Create empty template
+db.duplicate_table("products", "products_template", copy_data=False)
+
+# Partial copy with filtering
+row_count = db.duplicate_table(
+    "orders",
+    "recent_orders",
+    where_clause="order_date > %s",
+    where_values=("2023-01-01",)
+)
+
+# Large table with chunking
+row_count = db.duplicate_table(
+    "historical_data",
+    "historical_data_copy",
+    chunk_size=100000
+)
+```
+
+Rename.
+```python
+# Basic rename
+if not db.rename_table("old_data", "new_data"):
+    print("Target table already exists")
+
+# Forceful rename
+db.rename_table("temp_results", "final_results", overwrite=True)
+```
+
+Add a column.
+```python
+# Add simple nullable column
+db.add_column("employees", "middle_name", "VARCHAR(100)")
+
+# Add NOT NULL column with default
+db.add_column(
+    "products",
+    "discontinued",
+    "BOOLEAN",
+    default=False,
+    not_null=True
+)
+
+# Add positioned column
+db.add_column(
+    "orders",
+    "processing_time",
+    "INT",
+    after_column="order_date"
+)
+
+# Force add even if exists
+db.add_column(
+    "customers",
+    "loyalty_points",
+    "INT",
+    check_exists=False
 )
 ```

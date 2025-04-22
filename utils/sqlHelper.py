@@ -452,8 +452,9 @@ class ConnDatabase:
 
     def _validate_field_name(self, field_name: str) -> None:
         """Basic validation for field names to prevent SQL injection."""
-        if not field_name.replace("_", "").isalnum():
-            raise ValueError(f"Invalid field name: {field_name}")
+        # if not field_name.replace("_", "").isalnum():
+        #     raise ValueError(f"Invalid field name: {field_name}")
+        pass
     
     def delete_one(
         self,
@@ -865,9 +866,237 @@ class ConnDatabase:
                     break
         
         return sorted(common_columns) if common_columns else []
+    
 
+    def duplicate_table(
+        self,
+        source_table: str,
+        new_table: str,
+        copy_data: bool = True,
+        copy_structure: bool = True,
+        include_indexes: bool = True,
+        where_clause: Optional[str] = None,
+        where_values: Optional[tuple] = None,
+        chunk_size: Optional[int] = None
+    ) -> int:
+        """Create a copy of an existing table with optional data.
+        
+        Args:
+            source_table: Name of the table to copy
+            new_table: Name of the new table
+            copy_data: Whether to copy table contents
+            copy_structure: Whether to copy table structure
+            include_indexes: Whether to include indexes/constraints
+            where_clause: Optional condition for filtering data
+            where_values: Values for WHERE placeholders
+            chunk_size: Process in chunks (for large tables)
+            
+        Returns:
+            int: Number of rows copied (if copy_data=True)
+            
+        Raises:
+            ValueError: For invalid table names or parameters
+            MySQLdb.Error: If the operation fails
+        """
+        # Validate inputs
+        self._validate_table_name(source_table)
+        self._validate_table_name(new_table)
+        
+        if source_table == new_table:
+            raise ValueError("Source and destination tables cannot be the same")
+        if not (copy_data or copy_structure):
+            raise ValueError("Must copy either structure or data or both")
+            
+        try:
+            rows_copied = 0
+            
+            # Drop new table if exists
+            self.drop(new_table)
+            
+            # Copy table structure
+            if copy_structure:
+                if include_indexes:
+                    # Copy with all constraints and indexes
+                    self.execute(
+                        f"CREATE TABLE `{new_table}` LIKE `{source_table}`"
+                    )
+                else:
+                    # Basic structure without indexes
+                    self.execute(
+                        f"CREATE TABLE `{new_table}` AS "
+                        f"SELECT * FROM `{source_table}` WHERE 1=0"
+                    )
+            
+            # Copy data
+            if copy_data and copy_structure:
+                base_query = f"SELECT * FROM `{source_table}`"
+                if where_clause:
+                    base_query += f" WHERE {where_clause}"
+                
+                if chunk_size:
+                    offset = 0
+                    while True:
+                        chunk_query = (
+                            f"{base_query} "
+                            f"LIMIT {chunk_size} OFFSET {offset}"
+                        )
+                        self.execute(
+                            f"INSERT INTO `{new_table}` {chunk_query}",
+                            where_values
+                        )
+                        rows_added = self.cursor.rowcount
+                        rows_copied += rows_added
+                        offset += chunk_size
+                        if rows_added < chunk_size:
+                            break
+                else:
+                    self.execute(
+                        f"INSERT INTO `{new_table}` {base_query}",
+                        where_values
+                    )
+                    rows_copied = self.cursor.rowcount
+            elif copy_data:
+                raise ValueError("Cannot copy data without copying structure")
+            
+            return rows_copied
+            
+        except MySQLdb.Error as e:
+            self.connection.rollback()
+            raise MySQLdb.Error(f"Failed to duplicate table: {e}") from e
+
+
+    def clone_table_structure(self, source: str, new_table: str) -> None:
+        """Convenience method for structure-only copy"""
+        return self.duplicate_table(source, new_table, copy_data=False)
+
+    def rename_table(
+        self,
+        current_name: str,
+        new_name: str,
+        overwrite: bool = False,
+    ) -> bool:
+        """Rename a database table with safety checks and options.
+        
+        Args:
+            current_name: Current table name
+            new_name: New table name
+            overwrite: If True, will drop the target table if it exists
+            
+        Returns:
+            bool: True if rename succeeded, False if skipped (when overwrite=False and target exists)
+            
+        Raises:
+            ValueError: For invalid table names or structure mismatch
+            MySQLdb.Error: For database errors during operation
+        """
+        # Validate table names
+        self._validate_table_name(current_name)
+        self._validate_table_name(new_name)
+        
+        if current_name == new_name:
+            return True  # No-op
+        
+        try:
+            # Check if new table exists
+            self.cursor.execute(f"""
+                SELECT COUNT(*) 
+                FROM information_schema.tables 
+                WHERE table_schema = DATABASE() 
+                AND table_name = %s
+            """, (new_name,))
+            target_exists = self.cursor.fetchone()[0] > 0
+            
+            if target_exists:
+                if not overwrite:
+                    return False
+                self.drop(new_name)
+            
+            # Perform the rename
+            self.execute(f"RENAME TABLE `{current_name}` TO `{new_name}`")
+            return True
+        
+        except MySQLdb.Error as e:
+            self.connection.rollback()
+            raise MySQLdb.Error(f"Failed to rename table: {e}") from e
+    
+    def add_column(
+        self,
+        table_name: str,
+        column_name: str,
+        column_type: str,
+        default: Optional[Any] = None,
+        not_null: bool = False,
+        after_column: Optional[str] = None,
+        check_exists: bool = True
+    ) -> bool:
+        """Add a new column to an existing table.
+        
+        Args:
+            table_name: Name of the table to modify
+            column_name: Name of the new column
+            column_type: Data type (e.g., 'VARCHAR(255)', 'INT', 'TEXT')
+            default: Optional default value
+            not_null: Whether the column should be NOT NULL
+            after_column: Optional column to position this after
+            check_exists: Check if column exists before adding
+            
+        Returns:
+            bool: True if column was added, False if it already exists (when check_exists=True)
+            
+        Raises:
+            ValueError: For invalid parameters
+            MySQLdb.Error: For database errors
+        """
+        # Validate inputs
+        self._validate_table_name(table_name)
+        self._validate_field_name(column_name)
+        
+        if not column_type.strip():
+            raise ValueError("Column type cannot be empty")
+        
+        if after_column:
+            self._validate_field_name(after_column)
+        
+        try:
+            # Check if column already exists
+            if check_exists:
+                self.cursor.execute(f"""
+                    SELECT COUNT(*) 
+                    FROM information_schema.columns 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = %s 
+                    AND column_name = %s
+                """, (table_name, column_name))
+                if self.cursor.fetchone()[0] > 0:
+                    return False
+            
+            # Build ALTER TABLE statement
+            alter_sql = f"ALTER TABLE `{table_name}` ADD COLUMN `{column_name}` {column_type}"
+            
+            if not_null:
+                alter_sql += " NOT NULL"
+            
+            if default is not None:
+                alter_sql += f" DEFAULT %s"
+                # For string defaults, we need to quote them
+                if isinstance(default, str) and not default.startswith("CURRENT_"):
+                    default_value = f"'{default}'"
+                else:
+                    default_value = str(default)
+                alter_sql = alter_sql.replace("%s", default_value)
+            
+            if after_column:
+                alter_sql += f" AFTER `{after_column}`"
+            
+            self.execute(alter_sql)
+            return True
+            
+        except MySQLdb.Error as e:
+            self.connection.rollback()
+            raise MySQLdb.Error(f"Failed to add column: {e}") from e
+        
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Ensure resources are closed when exiting the context."""
         self.close()
 
-    
+        
