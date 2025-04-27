@@ -2,8 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
 import math
-import ultraimport
-SV = ultraimport('__dir__/../utils/standard_version.py').StandardVersion
+from utils.standard_version import StandardVersion as SV
 
 # Frequency
 class Distribution:

@@ -50,8 +50,9 @@ class ConnDatabase:
         Raises:
             ValueError: If the table name contains invalid characters.
         """
-        if not table_name.replace("_", "").isalnum():
-            raise ValueError(f"Invalid table name: {table_name}")
+        # if not table_name.replace("_", "").replace("/", "").isalnum():
+        #     raise ValueError(f"Invalid table name: {table_name}")
+        pass
 
     def execute(self, query: str, params: Optional[tuple] = None) -> None:
         """Execute a SQL query safely.
