@@ -17,7 +17,6 @@ NEW_TABLE = OLD_TABLE + 'u'
 
 db.clone_table_structure(OLD_TABLE , NEW_TABLE)
 db.add_column(NEW_TABLE, "# hits", "INT")   # Record the library hits in the last one year on jsDelivr
-db.add_column(NEW_TABLE, "category", "varchar(100)", after_column='libname')
 
 # Get the columns from source table (excluding 'id')
 columns = db.show_columns(OLD_TABLE)

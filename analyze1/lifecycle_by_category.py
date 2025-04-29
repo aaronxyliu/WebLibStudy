@@ -9,7 +9,7 @@ sys.path.append(str(parent_dir))
 from utils.sqlHelper import ConnDatabase
 from utils.logger import getLogger
 from utils.stat import Distribution as Dist
-from utils.globalv import GROUP_LIST
+from utils.globalv import CATEGORY_LIST
 db = ConnDatabase('Libraries')
 logger = getLogger()
 
@@ -19,7 +19,7 @@ START_YEAR = 2008
 END_YEAR = 2025
 SPAN = END_YEAR - START_YEAR + 1
 
-def analyze(group, total=False):
+def analyze(category, total=False):
 
     first_tag_year_list = [0] * SPAN        # the number of libraries that start to update of each year
     last_tag_year_list = [0] * SPAN         # the number of libraries that stop to update of each year
@@ -30,7 +30,7 @@ def analyze(group, total=False):
     if total:
         res = db.select_all(TABLE, ['created', 'first tag date', 'last tag date'])
     else:
-        res = db.select_all(TABLE, ['created', 'first tag date', 'last tag date'], condition="`group`=%s", condition_values=(group,))
+        res = db.select_all(TABLE, ['created', 'first tag date', 'last tag date'], condition="`category`=%s", condition_values=(category,))
 
     for entry in res:
         created, first_tag_date, last_tag_date = entry['created'], entry['first tag date'], entry['last tag date']
@@ -73,15 +73,15 @@ def analyze(group, total=False):
 if __name__ == '__main__':
     year_list = range(START_YEAR, END_YEAR + 1)
 
-    group_num = len(GROUP_LIST)
-    first_tag_year_lists = [[]] * group_num
-    last_tag_year_lists = [[]] * group_num
-    stop_update_perc_lists = [[]] * group_num
-    start_update_sum_lists = [[]] * group_num
-    keep_update_lists = [[]] * group_num
+    cat_num = len(CATEGORY_LIST)
+    first_tag_year_lists = [[]] * cat_num
+    last_tag_year_lists = [[]] * cat_num
+    stop_update_perc_lists = [[]] * cat_num
+    start_update_sum_lists = [[]] * cat_num
+    keep_update_lists = [[]] * cat_num
 
-    for i in range(group_num):
-        first_tag_year_lists[i], last_tag_year_lists[i], stop_update_perc_lists[i], start_update_sum_lists[i], keep_update_lists[i] = analyze(GROUP_LIST[i])
+    for i in range(cat_num):
+        first_tag_year_lists[i], last_tag_year_lists[i], stop_update_perc_lists[i], start_update_sum_lists[i], keep_update_lists[i] = analyze(CATEGORY_LIST[i])
     l1, l2, l3, l4, l5 = analyze('Total', total=True)
     first_tag_year_lists.append(l1)
     last_tag_year_lists.append(l2)
@@ -89,45 +89,45 @@ if __name__ == '__main__':
     start_update_sum_lists.append(l4)
     keep_update_lists.append(l5)
     
-    with open(f'data/lifecycle/byGroup/first_tag_year.csv', 'w', newline='') as file:
+    with open(f'data/lifecycle/byCat/first_tag_year.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Year'] + GROUP_LIST + ['Total'])  # Header row
+        writer.writerow(['Year'] + CATEGORY_LIST + ['Total'])  # Header row
         for i_row in range(SPAN):
             row = [year_list[i_row]]
             for l in first_tag_year_lists:
                 row.append(l[i_row])
             writer.writerow(row)   
 
-    with open(f'data/lifecycle/byGroup/last_tag_year.csv', 'w', newline='') as file:
+    with open(f'data/lifecycle/byCat/last_tag_year.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Year'] + GROUP_LIST + ['Total'])  # Header row
+        writer.writerow(['Year'] + CATEGORY_LIST + ['Total'])  # Header row
         for i_row in range(SPAN):
             row = [year_list[i_row]]
             for l in last_tag_year_lists:
                 row.append(l[i_row])
             writer.writerow(row)   
 
-    with open(f'data/lifecycle/byGroup/stop_update_perc.csv', 'w', newline='') as file:
+    with open(f'data/lifecycle/byCat/stop_update_perc.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Year'] + GROUP_LIST + ['Total'])  # Header row
+        writer.writerow(['Year'] + CATEGORY_LIST + ['Total'])  # Header row
         for i_row in range(SPAN):
             row = [year_list[i_row]]
             for l in stop_update_perc_lists:
                 row.append(l[i_row])
             writer.writerow(row)   
     
-    with open(f'data/lifecycle/byGroup/start_update_sum.csv', 'w', newline='') as file:
+    with open(f'data/lifecycle/byCat/start_update_sum.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Year'] + GROUP_LIST + ['Total'])  # Header row
+        writer.writerow(['Year'] + CATEGORY_LIST + ['Total'])  # Header row
         for i_row in range(SPAN):
             row = [year_list[i_row]]
             for l in start_update_sum_lists:
                 row.append(l[i_row])
             writer.writerow(row)   
 
-    with open(f'data/lifecycle/byGroup/keep_update_year.csv', 'w', newline='') as file:
+    with open(f'data/lifecycle/byCat/keep_update_year.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(['Year'] + GROUP_LIST + ['Total'])  # Header row
+        writer.writerow(['Year'] + CATEGORY_LIST + ['Total'])  # Header row
         for i_row in range(SPAN):
             row = [year_list[i_row]]
             for l in keep_update_lists:

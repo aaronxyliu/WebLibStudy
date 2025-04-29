@@ -85,6 +85,7 @@ def categorize_library(name, url, description):
 
 # Main processing function
 def process_libraries():
+    db.add_column(TABLE, "category", "varchar(100)", after_column='libname')
     libraries = db.select_all(TABLE, ['libname', 'github', 'description'])
     
     i = 1

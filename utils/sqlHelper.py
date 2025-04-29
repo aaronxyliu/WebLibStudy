@@ -283,43 +283,51 @@ class ConnDatabase:
         self,
         table_name: str,
         data: Dict[str, Any],
-        condition_field: str
+        condition_fields: Union[str, List[str]]
     ) -> int:
         """Update record if exists, otherwise insert (upsert operation).
         
         Args:
             table_name: Name of the table
             data: Dictionary of {column: value} pairs
-            condition_field: Field to check for existing record
+            condition_fields: Single field or list of fields to check for existing record
             
         Returns:
             int: Last inserted ID if created, or rowcount if updated
             
         Raises:
-            ValueError: If data is empty or condition field missing
+            ValueError: If data is empty or condition fields missing
             MySQLdb.Error: If the operation fails
         """
         if not data:
             raise ValueError("Data dictionary cannot be empty.")
-        if condition_field not in data:
-            raise ValueError(f"Condition field '{condition_field}' missing in data")
+            
+        # Convert single field to list for consistent processing
+        if isinstance(condition_fields, str):
+            condition_fields = [condition_fields]
+            
+        # Check all condition fields exist in data
+        missing_fields = [field for field in condition_fields if field not in data]
+        if missing_fields:
+            raise ValueError(f"Condition fields missing in data: {', '.join(missing_fields)}")
         
         self._validate_table_name(table_name)
         
-        # Check if record exists
-        condition_value = data[condition_field]
-        count_query = f"SELECT COUNT(*) FROM `{table_name}` WHERE `{condition_field}`=%s"
+        # Prepare condition values and where clause
+        condition_values = [data[field] for field in condition_fields]
+        where_parts = [f"`{field}`=%s" for field in condition_fields]
+        where_clause = " AND ".join(where_parts)
+        count_query = f"SELECT COUNT(*) FROM `{table_name}` WHERE {where_clause}"
         
         try:
-            self.execute(count_query, (condition_value,))
+            self.execute(count_query, condition_values)
             exists = self.cursor.fetchone()[0] > 0
             
             if exists:
                 # Build condition for update
-                condition = f"`{condition_field}`=%s"
-                # Remove condition field from update data to avoid duplicate set
-                update_data = {k: v for k, v in data.items() if k != condition_field}
-                return self.update(table_name, update_data, condition, (condition_value,))
+                # Remove condition fields from update data to avoid duplicate set
+                update_data = {k: v for k, v in data.items() if k not in condition_fields}
+                return self.update(table_name, update_data, where_clause, condition_values)
             else:
                 return self.insert(table_name, data)
                 

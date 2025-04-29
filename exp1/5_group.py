@@ -1,3 +1,4 @@
+# Identify the group of each library based on category
 
 import sys
 from pathlib import Path
@@ -13,6 +14,7 @@ logger = getLogger()
 TABLE = 'libs_cdnjs_all_4_20u'
 
 def getGroup(category):
+    # According to the group category relationship LIB_CATEGORY defined in the globalv
     for group_name, categories in LIB_CATEGORY.items():
         if category in categories:
             return group_name
@@ -20,6 +22,7 @@ def getGroup(category):
 
 # Main processing function
 def process_libraries():
+    db.add_column(TABLE, "group", "varchar(100)", after_column='libname')
     libraries = db.select_all(TABLE, ['libname', 'category', 'description'])
     
     for lib in libraries:

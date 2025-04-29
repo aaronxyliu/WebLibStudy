@@ -46,6 +46,12 @@ LIB_CATEGORY = {
         "AI": ["AI"],
     }
 
+CATEGORY_LIST = []
+GROUP_LIST = []
+for key, value in LIB_CATEGORY.items():
+    GROUP_LIST.append(key)
+    CATEGORY_LIST += value
+
 # def releaseNumInfo():
 #     libs = conn.show_tables()
 #     release_num_dict = {}

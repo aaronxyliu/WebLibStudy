@@ -138,7 +138,7 @@ db.update(
 db.upsert(
     table_name="users",
     data={"id": 123, "name": "Alice", "email": "new@example.com"},
-    condition_field="id"
+    condition_fields="id"
 ) # Update when there is already an entry with id "123"; otherwise insert.
 ```
 

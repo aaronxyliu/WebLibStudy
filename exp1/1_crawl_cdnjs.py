@@ -91,7 +91,7 @@ def update_github_info(libname, lib_info):
                 'github': github_url, 
                 'created': created, 
                 'updated': updated},
-            condition_field="libname"
+            condition_fields="libname"
         )
     
     # Update tag information
@@ -106,7 +106,7 @@ def update_github_info(libname, lib_info):
                 'first tag date': lib_entry[2], 
                 'last tag name': lib_entry[3], 
                 'last tag date': lib_entry[4]},
-            condition_field="libname"
+            condition_fields="libname"
         )
         return
     
@@ -152,7 +152,7 @@ def update_github_info(libname, lib_info):
                'first tag date': first_tag_date, 
                'last tag name': last_tag_name, 
                'last tag date': last_tag_date},
-        condition_field="libname"
+        condition_fields="libname"
     )
     MEMORY_DICT[github_url] = [tag_no, first_tag_name, first_tag_date, last_tag_name, last_tag_date]
     
@@ -172,9 +172,9 @@ def update_basic_info(libname, lib_info):
                'cdnjs': cdnjs, 
                'cdnjs rank': cnt, 
                'description': dscp, 
-               '#versions': version_num, 
+               '# versions': version_num, 
                'latest version': latest_version},
-        condition_field="libname"
+        condition_fields="libname"
     )
 
 if __name__ == '__main__':
@@ -186,7 +186,7 @@ if __name__ == '__main__':
         `cdnjs rank` int DEFAULT NULL,
         `star` int DEFAULT NULL,
         `description` varchar(10000) DEFAULT NULL,
-        `#versions` int DEFAULT NULL,
+        `# versions` int DEFAULT NULL,
         `latest version` varchar(100) DEFAULT NULL,
         `github` varchar(500) DEFAULT NULL,
         `created` date DEFAULT NULL,

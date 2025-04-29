@@ -1,3 +1,5 @@
+# Crawl releases and tags from GitHub for all libraries
+
 import os
 from urllib.request import Request, urlopen
 from dotenv import load_dotenv
@@ -161,7 +163,7 @@ def crawlByTag(libname, github_direct=None):
 
 def crawlAll():
 
-    res = conn.select_all(LIB_TABLE, ['cdnjs rank', 'libname', 'github'], return_as='tuple')
+    res = conn.select_all(LIB_TABLE, ['cdnjs rank', 'libname', 'github'], return_as='tuple', order_by='cdnjs rank')
     for entry in res:
         rank = entry[0]
         if rank < START_RANK:
