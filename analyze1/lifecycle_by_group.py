@@ -15,7 +15,7 @@ logger = getLogger()
 
 TABLE = 'libs_cdnjs_all_4_20u'
 
-START_YEAR = 2008
+START_YEAR = 2006
 END_YEAR = 2025
 SPAN = END_YEAR - START_YEAR + 1
 

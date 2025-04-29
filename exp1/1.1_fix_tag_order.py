@@ -115,8 +115,6 @@ if __name__ == '__main__':
         libname = lib_entry[0]
         github_url = lib_entry[1]
 
-        if libname == 'react-router':
-            continue
 
         update_tag_info(lib_entry[0], lib_entry[1][11:])    
 

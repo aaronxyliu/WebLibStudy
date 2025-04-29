@@ -5,6 +5,10 @@
     # INNER JOIN libs_cdnjs_all_4_20u AS l ON v.libname=l.libname
     # GROUP BY v.libname, l.star, l.`group`, l.`category`, l.`# hits`;
 
+    # SELECT l.category, COUNT(DISTINCT v.libname) 
+    # FROM vulnerabilities AS v 
+    # INNER JOIN libs_cdnjs_all_4_20u AS l ON v.libname=l.libname
+    # GROUP BY l.category;
 
 import requests
 import time

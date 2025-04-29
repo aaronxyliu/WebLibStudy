@@ -1,6 +1,6 @@
 # Calculate the abandonment-related information for libraries
 # Get the average span of each category:
-#     SELECT `category`, AVG(`span`) FROM Libraries.libs_cdnjs_all_4_20u WHERE `span`>=0 GROUP BY `category`;
+#     SELECT `category`, AVG(`span`) FROM Libraries.libs_cdnjs_all_4_20u GROUP BY `category`;
 # Get the number of adandoned libraries of each category:
 #     SELECT `category`, COUNT(*) FROM Libraries.libs_cdnjs_all_4_20u WHERE `abandoned`=1 GROUP BY `category`;
 
@@ -11,13 +11,18 @@ sys.path.append(str(parent_dir))
 from utils.sqlHelper import ConnDatabase
 from utils.globalv import LIB_CATEGORY
 db = ConnDatabase('Libraries')
-from datetime import datetime
+from datetime import datetime, date
 
 
 TABLE = 'libs_cdnjs_all_4_20u'
 # Current date
 TODAY = datetime.now().date()
 ABANDON_THRES_DAYS = 716        # 99% libraries' span per tag is less or equal than 716
+
+def average_date(date1: date, date2: date) -> date:
+    delta = date2 - date1
+    avg_date = date1 + (delta / 2)
+    return avg_date
 
 def getGroup(category):
     for group_name, categories in LIB_CATEGORY.items():
@@ -40,8 +45,10 @@ def process_libraries():
         span_days = 0
         from_today = -1
         span_per_tag = 0
+        span_per_version = 0
         if tag_num == 0:
-            from_today = (TODAY - updated).days
+            # Use the average to estimate the version publishing time
+            from_today = (TODAY - average_date(created, updated)).days
         if tag_num > 0:
             from_today = (TODAY - last_tag_date).days
         if tag_num > 1:
@@ -49,6 +56,8 @@ def process_libraries():
             if last_tag_date >= first_tag_date:
                 span_days = (last_tag_date - first_tag_date).days
                 span_per_tag = round(span_days / (tag_num - 1), 1)
+        if v_num > 0:
+            span_per_version = round(span_days / (v_num - 1), 1)
         
         # Marked as "abandoned" if the last update is 2 years ago
         abaondoned = from_today > ABANDON_THRES_DAYS
@@ -57,7 +66,10 @@ def process_libraries():
         
 
         db.update(TABLE, 
-                  data={'span': span_days, "abandoned": abaondoned, "span per tag": span_per_tag}, 
+                  data={'span': span_days, 
+                        "abandoned": abaondoned, 
+                        "span per tag": span_per_tag,
+                        "span per version": span_per_version}, 
                   condition='libname=%s', 
                   condition_values=(libname,)) 
         
