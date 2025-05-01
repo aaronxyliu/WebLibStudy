@@ -16,7 +16,6 @@ OLD_TABLE = 'libs_cdnjs_all_4_20'
 NEW_TABLE = OLD_TABLE + 'u'
 
 db.clone_table_structure(OLD_TABLE , NEW_TABLE)
-db.add_column(NEW_TABLE, "# hits", "INT")   # Record the library hits in the last one year on jsDelivr
 
 # Get the columns from source table (excluding 'id')
 columns = db.show_columns(OLD_TABLE)

@@ -24,7 +24,7 @@ def get_normalized_github_urls_from_db():
     Read GitHub URLs from the database and normalize them
     """
     
-    rows = db.select_all(TABLE, ['libname', 'github'], condition='`github` IS NOT NULL', return_as="list")
+    rows = db.select_all(TABLE, ['libname', 'github'], condition='`github` IS NOT NULL', return_as="tuple")
     
     normalized_urls = {}
     for libname, github_url in rows:
@@ -77,6 +77,7 @@ def crawl_jsdelivr_hits():
     """
     Main function to crawl jsDelivr hits and update database
     """
+    db.add_column(TABLE, "# hits", "INT")   # Record the library hits in the last one year on jsDelivr
     normalized_urls = get_normalized_github_urls_from_db()
     
     cnt = 1
