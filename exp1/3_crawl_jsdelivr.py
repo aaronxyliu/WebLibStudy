@@ -16,8 +16,8 @@ logger = getLogger()
 
 
 TABLE = 'libs_cdnjs_all_4_20u'
-CRAWL_START = 111
-CRAWL_INTERVAL = 0.2    # sleep seconds between iterations
+CRAWL_START = 1
+CRAWL_INTERVAL = 0.1    # sleep seconds between iterations
 
 def get_normalized_github_urls_from_db():
     """
@@ -39,7 +39,7 @@ def get_normalized_github_urls_from_db():
     
     return normalized_urls
 
-def get_jsdelivr_hits(normalized_url):
+def get_jsdelivr_hits(libname):
     """
     Get the total hits for a package on jsDelivr over the past year
     
@@ -49,10 +49,10 @@ def get_jsdelivr_hits(normalized_url):
     Returns:
         int: Total hits in the past year or None if not found
     """
-    owner, repo = normalized_url.split('/')
+    # owner, repo = normalized_url.split('/')
 
     # API Reference: https://www.jsdelivr.com/docs/data.jsdelivr.com#get-/v1/stats/packages/gh/-user-/-repo-
-    stats_url = f"https://data.jsdelivr.com/v1/stats/packages/gh/{owner}/{repo}?period=year"
+    stats_url = f"https://data.jsdelivr.com/v1/stats/packages/npm/{libname}?period=year"
     req = Request(
         url=stats_url,
         headers={'User-Agent': 'Mozilla/5.0'}
@@ -65,11 +65,11 @@ def get_jsdelivr_hits(normalized_url):
     except HTTPError as e:
         if e.code == 404:
             return None  # Package not found
-        logger.warning(f"HTTP Error for {normalized_url}: {e.code}")
+        logger.warning(f"HTTP Error for {libname}: {e.code}")
     except URLError as e:
-        logger.warning(f"URL Error for {normalized_url}: {e.reason}")
+        logger.warning(f"URL Error for {libname}: {e.reason}")
     except Exception as e:
-        logger.warning(f"Error processing {normalized_url}: {e}")
+        logger.warning(f"Error processing {libname}: {e}")
     
     return None
 
@@ -77,7 +77,7 @@ def crawl_jsdelivr_hits():
     """
     Main function to crawl jsDelivr hits and update database
     """
-    db.add_column(TABLE, "# hits", "INT")   # Record the library hits in the last one year on jsDelivr
+    db.add_column(TABLE, "# hits", "BIGINT")   # Record the library hits in the last one year on jsDelivr
     normalized_urls = get_normalized_github_urls_from_db()
     
     cnt = 1
@@ -86,16 +86,16 @@ def crawl_jsdelivr_hits():
             cnt += 1
             continue
 
-        hits = get_jsdelivr_hits(normalized_url)
+        hits = get_jsdelivr_hits(libname)
         
         if hits is not None:
             db.update(TABLE, 
                       data={'# hits': hits}, 
                       condition="`libname`=%s", 
                       condition_values=(libname,))
-            logger.info(f"{cnt}: Updated {normalized_url}: {hits} hits")
+            logger.info(f"{cnt}: Updated {libname}: {hits} hits")
         else:
-            logger.warning(f"{cnt}: Package not found on jsDelivr: {normalized_url}")
+            logger.warning(f"{cnt}: Package not found on jsDelivr: {libname}")
         
         # Be polite with rate limiting
         time.sleep(CRAWL_INTERVAL)
