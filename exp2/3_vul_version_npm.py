@@ -170,14 +170,14 @@ def get_jsdelivr_version_hits(libname, version_str):
             return hits
     except HTTPError as e:
         if e.code == 404:
-            return None  # Package not found
-        logger.warning(f"HTTP Error for {libname}: {e.code}")
+            logger.warning(f"HTTP Error for {libname}: {e.code}")
+            return 0  # Package not found
     except URLError as e:
         logger.warning(f"URL Error for {libname}: {e.reason}")
     except Exception as e:
         logger.warning(f"Error processing {libname}: {e}")
     
-    return None
+    return 0
 
 if __name__ == '__main__':
     db.add_column(VUL_TABLE, '# hits (npm)', 'BIGINT')   # One year hits of vulnerable versions

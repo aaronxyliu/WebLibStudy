@@ -22,12 +22,7 @@ db = ConnDatabase('Libraries')
 
 LIB_TABLE = 'libs_cdnjs_all_4_20u'
 VUL_TABLE = 'vulnerabilities'
-
-START_SYNK = '/vuln/SNYK-JS-MERMAID-2328372'
-
-# Prevent duplicate crawling
-# Dict format: "<github_url>:<version>": <hits>
-MEMORY_DICT = {}        
+HITS_TABLE = 'vulhits'
 
 def get_normalized_github_urls_from_db():
     """
@@ -48,6 +43,49 @@ def get_normalized_github_urls_from_db():
                 normalized_urls[libname] = normalized_url
     
     return normalized_urls
+
+NORMALIZED = get_normalized_github_urls_from_db()
+
+def get_jsdelivr_hits(libname:str, source:str, version_tag:str=None, period:str=None):
+    # API Reference: https://www.jsdelivr.com/docs/data.jsdelivr.com#get-/v1/stats/packages/gh/-user-/-repo-
+
+    stats_url = f"https://data.jsdelivr.com/v1/stats/packages/"
+
+    if source == 'npm':
+        stats_url += f"npm/{libname}"
+    else:
+        if libname not in NORMALIZED:
+            logger.warning(f"{libname} has no github url in table {LIB_TABLE}")
+            return 0
+        normalized_url = NORMALIZED[libname]
+        owner, repo = normalized_url.split('/')
+        stats_url += f"gh/{owner}/{repo}"
+    
+    if version_tag:
+        stats_url += f"@{version_tag}"
+    
+    if period:
+        stats_url += f"?period={period}"
+
+    req = Request(
+        url=stats_url,
+        headers={'User-Agent': 'Mozilla/5.0'}
+    )
+    
+    try:
+        with urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            return data['hits']['total']
+    except HTTPError as e:
+        if e.code == 404:
+            logger.warning(f"HTTP Error for {libname}: {e.code}")
+            return 0  # Package not found
+    except URLError as e:
+        logger.warning(f"URL Error for {libname}: {e.reason}")
+    except Exception as e:
+        logger.warning(f"Error processing {libname}: {e}")
+    
+    return 0   
 
 def extract_version_part(version_str):
     """
@@ -118,125 +156,105 @@ def is_version_in_range(version_str, range_str):
     except (version.InvalidVersion, ValueError) as e:
         logger.error(f"Invalid version or range: {e}")
         return False
-
-def range2version(normalized_url:str, version_range:str) -> list:
-    """
-    Get the versions for a package within a specified version range on jsDelivr over the past year
     
-    Args:
-        normalized_url: The GitHub normalized url of the library
-        version_range: The library version range provided by Synk database
-        
-    Returns:
-        version_list: A list of versions inside the range
+
+def getVersionDict(libname:str, source:str) -> dict:
     """
-    owner, repo = normalized_url.split('/')
+    Return a version dictionary of the library. The format is <version: True/False>, indicating whether
+    a specific version is vulnerable.
+
+    source: npm or gh
+    """
+    ret_version_dict = {}
 
     # API Reference: https://www.jsdelivr.com/docs/data.jsdelivr.com#get-/v1/stats/packages/gh/-user-/-repo-
-    stats_url = f"https://data.jsdelivr.com/v1/packages/gh/{owner}/{repo}"
+    stats_url = f"https://data.jsdelivr.com/v1/packages/"
+
+    if source == 'npm':
+        stats_url += f"npm/{libname}"
+    else:
+        if libname not in NORMALIZED:
+            logger.warning(f"{libname} has no github url in table {LIB_TABLE}")
+            return {}
+        normalized_url = NORMALIZED[libname]
+        owner, repo = normalized_url.split('/')
+        stats_url += f"gh/{owner}/{repo}"
+
     req = Request(
         url=stats_url,
         headers={'User-Agent': 'Mozilla/5.0'}
     )
     
-    version_list, version_info_list = [], []
+    version_info_list = []
     try:
         with urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode('utf-8'))
             version_info_list = data['versions']
     except HTTPError as e:
         if e.code == 404:
-            return []  # Package not found
-        logger.warning(f"HTTP Error for {normalized_url}: {e.code}")
+            logger.warning(f"HTTP Error for {libname}: {stats_url}")
+            return {}  # Package not found
     except URLError as e:
-        logger.warning(f"URL Error for {normalized_url}: {e.reason}")
+        logger.warning(f"URL Error for {libname}: {stats_url}")
     except Exception as e:
-        logger.warning(f"Error processing {normalized_url}: {e}")
+        logger.warning(f"Error processing {libname}: {stats_url} ({e})")
     
     for version_info in version_info_list:
         # Check whether this version is vulnerable
-        version_str = version_info["version"]
-        if is_version_in_range(version_str, version_range):
-            version_list.append(version_str)
-    return version_list
+       ret_version_dict[version_info["version"]] = False
+    return ret_version_dict
 
-def get_jsdelivr_version_hits(normalized_url, version_str):
-    """
-    Get the total hits for a library of given version on jsDelivr over the past year
-    
-    Args:
-        normalized_url (str): GitHub URL in 'owner/repo' format
-        version_str: The version string
-        
-    Returns:
-        int: Total hits of this library version in the past year or None if not found
-    """
-    memory_key = f"{normalized_url}:{version_str}"
-    if memory_key in MEMORY_DICT:
-        # Save time, no bother to crawl
-        return MEMORY_DICT[memory_key]
-
-    owner, repo = normalized_url.split('/')
-
-    # API Reference: https://www.jsdelivr.com/docs/data.jsdelivr.com#get-/v1/stats/packages/gh/-user-/-repo-
-    stats_url = f"https://data.jsdelivr.com/v1/stats/packages/gh/{owner}/{repo}@{version_str}?period=year"
-    req = Request(
-        url=stats_url,
-        headers={'User-Agent': 'Mozilla/5.0'}
-    )
-    
-    try:
-        with urlopen(req, timeout=10) as response:
-            data = json.loads(response.read().decode('utf-8'))
-            hits = data['hits']['total']
-            MEMORY_DICT[memory_key] = hits
-            return hits
-    except HTTPError as e:
-        if e.code == 404:
-            logger.warning(f"HTTP Error for {normalized_url}: {e.code}")
-            return 0  # Package not found
-    except URLError as e:
-        logger.warning(f"URL Error for {normalized_url}: {e.reason}")
-    except Exception as e:
-        logger.warning(f"Error processing {normalized_url}: {e}")
-    
-    return 0
 
 if __name__ == '__main__':
-    db.add_column(VUL_TABLE, '# hits (gh)', 'INT')   # One year hits of vulnerable versions
-    githuburl_dict = get_normalized_github_urls_from_db()
+    db.create_if_not_exists(HITS_TABLE, '''
+        `libname` varchar(100) DEFAULT NULL,
+        `# hits (npm)` bigint  DEFAULT NULL,
+        `# hits (gh)` bigint  DEFAULT NULL,
+        `# hits` bigint  DEFAULT NULL
+    ''')
 
-    res = db.select_all(VUL_TABLE, ['libname', 'synk', 'version1', 'version2', 'version3', 'version4', 'version5', 'version6'], return_as='tuple')
-    
-    start = False
-    for entry in res:
+    libs = db.fetchall(f"SELECT DISTINCT `libname` FROM {VUL_TABLE};")
+    for libentry in libs:
+        libname = libentry[0]
+        logger.info(f"{libname}")
 
-        libname, synk_link = entry[0], entry[1]
-        if synk_link == START_SYNK:
-            start = True
-        if not start:
-            continue
+        v_dict_npm = getVersionDict(libname, 'npm')
+        v_dict_gh = getVersionDict(libname, 'gh')
 
-        logger.info(f"{libname} ( {synk_link} )")
-        logger.indent()
-        hits = 0
-        for i in range(2, 8):
-            version_range = entry[i]
-            if not version_range:
-                break
-            if libname not in githuburl_dict or not githuburl_dict[libname]:
-                logger.warning(f"{libname} has no github url in the table {LIB_TABLE}.")
-                continue
-            versions = range2version(githuburl_dict[libname], version_range)
-            for version_str in versions:
-                hit = get_jsdelivr_version_hits(githuburl_dict[libname], version_str)
-                if hits:
-                    hits += hit
-                logger.info(f"{version_str}: {hit}")
-        
-        db.update(VUL_TABLE, data={'# hits (gh)': hits}, condition='synk=%s', condition_values=(synk_link,))
-        logger.outdent()
-    
+        res = db.select_all(VUL_TABLE, ['version1', 'version2', 'version3', 'version4', 'version5', 'version6']
+                            , return_as='tuple', condition="`libname`=%s", condition_values=(libname,))
+        for entry in res:
+            for i in range(0, 6):
+                version_range = entry[i]
+                if not version_range:
+                    break
+                for version_tag in v_dict_npm:
+                    if is_version_in_range(version_tag, version_range):
+                        v_dict_npm[version_tag] = True
+                for version_tag in v_dict_gh:
+                    if is_version_in_range(version_tag, version_range):
+                        v_dict_gh[version_tag] = True
+
+        hits1, hits2 = 0, 0
+        for version_tag in v_dict_npm:
+            if v_dict_npm[version_tag] == True:
+                # Iterate through all vulnerable versions
+                hits1 += get_jsdelivr_hits(libname, "npm", version_tag, 'year')
+        for version_tag in v_dict_gh:
+            if v_dict_gh[version_tag] == True:
+                # Iterate through all vulnerable versions
+                hits2 += get_jsdelivr_hits(libname, "gh", version_tag, 'year')
+        hits = hits1 + hits2
+
+        db.upsert(HITS_TABLE, data={
+            'libname': libname,
+            '# hits (npm)': hits1,
+            '# hits (gh)': hits2,
+            '# hits': hits
+        }, condition_fields="libname")
+
+        logger.info(f'Update # hits: {hits}')
+
     db.close()
 
 
