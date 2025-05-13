@@ -138,11 +138,13 @@ class ConnDatabase:
         self._validate_table_name(table_name)
         self.execute(f"DROP TABLE IF EXISTS `{table_name}`;")
 
-    def entry_count(self, table_name: str) -> int:
+    def entry_count(self, table_name: str, condition: Optional[str] = None, condition_values: Optional[tuple] = None) -> int:
         """Return the number of entries in a table.
         
         Args:
             table_name: The name of the table to count.
+            condition: WHERE condition string (use %s for parameters)
+            condition_values: Tuple of values for condition placeholders
         
         Returns:
             The number of rows in the table.
@@ -152,7 +154,11 @@ class ConnDatabase:
             MySQLdb.Error: If the query fails.
         """
         self._validate_table_name(table_name)
-        result = self.fetchone(f"SELECT COUNT(*) FROM `{table_name}`;")
+        
+        query = f"SELECT COUNT(*) FROM `{table_name}`"
+        if condition:
+            query += f" WHERE {condition}"
+        result = self.fetchone(query, condition_values)
         return result[0] if result else 0
 
 

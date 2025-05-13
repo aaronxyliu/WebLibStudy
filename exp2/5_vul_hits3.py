@@ -1,4 +1,4 @@
-# Calculate the vulnerable hits number for each library
+# Calculate the vulnerable hits number for each severity
 
 import os
 from packaging import version
@@ -22,7 +22,12 @@ db = ConnDatabase('Libraries')
 
 LIB_TABLE = 'libs_cdnjs_all_4_20u'
 VUL_TABLE = 'vulnerabilities'
-HITS_TABLE = 'vulhits'
+HITS_TABLE = 'vulhits3'
+
+SEVERITIES = ['low issue', 'medium issue', 'high issue', 'critical issue']
+
+VERSION_DICT_NPM = {}
+VERSION_DICT_GH = {}
 
 def get_normalized_github_urls_from_db():
     """
@@ -207,53 +212,56 @@ def getVersionDict(libname:str, source:str) -> dict:
 
 if __name__ == '__main__':
     db.create_if_not_exists(HITS_TABLE, '''
-        `libname` varchar(100) DEFAULT NULL,
+        `severity` varchar(100) DEFAULT NULL,
         `# hits (npm)` bigint  DEFAULT NULL,
         `# hits (gh)` bigint  DEFAULT NULL,
         `# hits` bigint  DEFAULT NULL
     ''')
 
-    libs = db.fetchall(f"SELECT DISTINCT `libname` FROM {VUL_TABLE};")
-    for libentry in libs:
-        libname = libentry[0]
-        logger.info(f"{libname}")
-
-        v_dict_npm = getVersionDict(libname, 'npm')
-        v_dict_gh = getVersionDict(libname, 'gh')
-
-        res = db.select_all(VUL_TABLE, ['version1', 'version2', 'version3', 'version4', 'version5', 'version6']
-                            , return_as='tuple', condition="`libname`=%s", condition_values=(libname,))
-        for entry in res:
-            for i in range(0, 6):
-                version_range = entry[i]
-                if not version_range:
-                    break
-                for version_tag in v_dict_npm:
-                    if is_version_in_range(version_tag, version_range):
-                        v_dict_npm[version_tag] = True
-                for version_tag in v_dict_gh:
-                    if is_version_in_range(version_tag, version_range):
-                        v_dict_gh[version_tag] = True
-
+    for sv in SEVERITIES:
+        # Iterate through severities
         hits1, hits2 = 0, 0
-        for version_tag in v_dict_npm:
-            if v_dict_npm[version_tag] == True:
-                # Iterate through all vulnerable versions
-                hits1 += get_jsdelivr_hits(libname, "npm", version_tag, 'year')
-        for version_tag in v_dict_gh:
-            if v_dict_gh[version_tag] == True:
-                # Iterate through all vulnerable versions
-                hits2 += get_jsdelivr_hits(libname, "gh", version_tag, 'year')
-        hits = hits1 + hits2
+        libs = db.fetchall(f"SELECT DISTINCT `libname` FROM {VUL_TABLE} WHERE `severity`='{sv}';")
+        
+        for entry2 in libs:
+            # Iterate through libraries
+            libname = entry2[0]
+            v_dict_npm = getVersionDict(libname, 'npm')
+            v_dict_gh = getVersionDict(libname, 'gh')
+            
+            
+            res = db.select_all(VUL_TABLE, ['version1', 'version2', 'version3', 'version4', 'version5', 'version6']
+                            , return_as='tuple', condition="`libname`=%s AND `severity`=%s", condition_values=(libname, sv))
+            for entry3 in res:
+                for i in range(0, 6):
+                    version_range = entry3[i]
+                    if not version_range:
+                        break
+                    for version_tag in v_dict_npm:
+                        if is_version_in_range(version_tag, version_range):
+                            v_dict_npm[version_tag] = True
+                    for version_tag in v_dict_gh:
+                        if is_version_in_range(version_tag, version_range):
+                            v_dict_gh[version_tag] = True
 
+            for version_tag in v_dict_npm:
+                if v_dict_npm[version_tag] == True:
+                    # Iterate through all vulnerable versions
+                    hits1 += get_jsdelivr_hits(libname, "npm", version_tag, 'year')
+            for version_tag in v_dict_gh:
+                if v_dict_gh[version_tag] == True:
+                    # Iterate through all vulnerable versions
+                    hits2 += get_jsdelivr_hits(libname, "gh", version_tag, 'year')
+        
+        hits = hits1 + hits2
         db.upsert(HITS_TABLE, data={
-            'libname': libname,
+            'severity': sv,
             '# hits (npm)': hits1,
             '# hits (gh)': hits2,
             '# hits': hits
-        }, condition_fields="libname")
+        }, condition_fields="severity")
 
-        logger.info(f'Update # hits: {hits}')
+        logger.info(f'Update {sv} # hits: {hits}')
 
     db.close()
 
