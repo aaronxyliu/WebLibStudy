@@ -128,7 +128,6 @@ if __name__ == '__main__':
         created = repo_info['created_at'][:10]
         updated = repo_info['updated_at'][:10]
 
-        db2.add_column(libname, 'estimate date', 'date DEFAULT NULL', after_column='date')
         version_list = []
         date_list = []
         version_entries = db2.select_all(libname, ['version', 'date'])

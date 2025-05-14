@@ -1,4 +1,4 @@
-# Crawl version date from npm
+# [Optional] Crawl version date from npm 
 
 from dotenv import load_dotenv
 load_dotenv()
