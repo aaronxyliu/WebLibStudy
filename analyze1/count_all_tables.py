@@ -27,22 +27,17 @@ if __name__ == "__main__":
         total_version_num += version_num
 
         columns = db.show_columns(table)
-        if 'date' in columns and 'npm date' in columns:
-            cnt1_sum += db.entry_count(table, condition="`date` IS NOT NULL AND `npm date` IS NOT NULL AND `date` > `npm date`")
-            cnt2_sum += db.entry_count(table, condition="`date` IS NOT NULL AND `npm date` IS NOT NULL AND `date` < `npm date`")
-            cnt3_sum += db.entry_count(table, condition="`date` IS NOT NULL AND `npm date` IS NOT NULL AND `date` = `npm date`")
+        if 'tag date' in columns and 'npm date' in columns:
+            cnt1_sum += db.entry_count(table, condition="`tag date` IS NOT NULL AND `npm date` IS NOT NULL AND `tag date` > `npm date`")
+            cnt2_sum += db.entry_count(table, condition="`tag date` IS NOT NULL AND `npm date` IS NOT NULL AND `tag date` < `npm date`")
+            cnt3_sum += db.entry_count(table, condition="`tag date` IS NOT NULL AND `npm date` IS NOT NULL AND `tag date` = `npm date`")
 
-            res = db.select_all(table, ['date', 'npm date'], condition="`date` IS NOT NULL AND `npm date` IS NOT NULL")
+            res = db.select_all(table, ['tag date', 'npm date'], condition="`tag date` IS NOT NULL AND `npm date` IS NOT NULL")
             for entry in res:
-                diff = (entry['npm date'] - entry['date']).days
+                diff = (entry['npm date'] - entry['tag date']).days
                 diff_cnt += 1
                 diff_sum += diff
 
-                
-        
-
-        # res = db.fetchone(f"SELECT COUNT(*) FROM `{table}` WHERE `date` IS NOT NULL")
-        # version_with_date_num += res[0]
 
     logger.info(f'Number of table: {len(tables)}')
     logger.info(f'Total version: {total_version_num}')

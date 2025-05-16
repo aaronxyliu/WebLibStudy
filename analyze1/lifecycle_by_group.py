@@ -43,7 +43,7 @@ def analyze(group, total=False):
         last_tag_year = int(str(last_tag_date)[:4])
         
         # Calculate first_tag_year_list and last_tag_year_list
-        if first_tag_year >= START_YEAR and first_tag_year <= END_YEAR :
+        if first_tag_year >= START_YEAR and first_tag_year <= END_YEAR:
             first_tag_year_list[first_tag_year - START_YEAR] += 1
         else:
             logger.warning(f'First tag year is out of range: {first_tag_year}')

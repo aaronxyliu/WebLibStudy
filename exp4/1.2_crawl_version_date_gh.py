@@ -15,7 +15,7 @@ from utils.logger import getLogger
 from utils.api_reader import GitHubAPIReader
 logger = getLogger()
 db = ConnDatabase('Libraries')
-db2 = ConnDatabase('version_gh')
+db2 = ConnDatabase('version_npm')
 reader = GitHubAPIReader(logger=logger)
 
 
@@ -51,23 +51,23 @@ def remove_non_numeric_prefix(input_string):
 
 
 def crawl_tag_date():
-    libs = db.select_all(LIB_TABLE, ["libname"], condition="`npm` IS NULL")
+    libs = db.select_all(LIB_TABLE, ["libname", "npm"], condition="`npm` IS NOT NULL")
     
     for i, entry in enumerate(libs):
-        libname = entry['libname']
+        libname, npm_name = entry['libname'], entry['npm']
 
-        if libname not in db2.show_tables():
-            logger.warning(f"{libname} has no records in the database 'version_gh'.")
+        if npm_name not in db2.show_tables():
+            logger.warning(f"{npm_name} has no records in the database 'version_npm'.")
             continue
 
-        logger.info(f"({i}/{len(libs)}) Start updating {libname}.")
+        db2.add_column(npm_name, 'tag date', 'date DEFAULT NULL')
+        db2.add_column(npm_name, 'estimate date', 'date DEFAULT NULL')
 
-        db2.add_column(libname, 'tag date', 'date DEFAULT NULL')
-        db2.add_column(libname, 'estimate date', 'date DEFAULT NULL', after_column='tag date')
-
-        if db2.entry_count(libname, condition="`tag date` IS NULL AND `estimate date` IS NULL") == 0:
+        if db2.entry_count(npm_name, condition="`tag date` IS NULL AND `estimate date` IS NULL") == 0:
             # Do not need to induce, skip
             continue
+
+        logger.info(f"({i}/{len(libs)}) Start updating {libname} ({npm_name}).")
         
         # Retrieve the GtiHub commit url of each tag
         tags_entry = db.select_one(TAG_TABLE, ["tags"], condition="`libname`=%s", condition_values=(libname,))
@@ -78,7 +78,7 @@ def crawl_tag_date():
             tag_name_url_dict[clean_tag_name] = tag['commit']['url']
 
         # Start date crawling
-        res = db2.select_all(libname, ["version"], condition="`tag date` IS NULL AND `estimate date` IS NULL")
+        res = db2.select_all(npm_name, ["version"], condition="`tag date` IS NULL AND `estimate date` IS NULL")
         matched_num = 0
         for entry2 in res:
             v_name_original = entry2["version"]
@@ -97,12 +97,12 @@ def crawl_tag_date():
                         except:
                             logger.warning('Github API miss element 2.')
                             continue
-                        db2.update(libname, data={'tag date': date[:10]}, condition="version=%s", condition_values=(v_name_original,))
+                        db2.update(npm_name, data={'tag date': date[:10]}, condition="version=%s", condition_values=(v_name_original,))
                         logger.info(f'    {v_name}: {date[:10]}')
                     if should_stop:
                         return  # Stop crawling
         
-        logger.info(f"{libname} is updated. {matched_num}/{len(res)} versions are matched.")
+        logger.info(f"{npm_name} is updated. {matched_num}/{len(res)} versions are matched.")
         logger.leftTimeEstimator(len(libs) - i)
 
 

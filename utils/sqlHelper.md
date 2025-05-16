@@ -269,6 +269,9 @@ Add a column.
 # Add simple nullable column
 db.add_column("employees", "middle_name", "VARCHAR(100)")
 
+# Drop a column
+db.drop_column("employees", "middle_name")
+
 # Add NOT NULL column with default
 db.add_column(
     "products",

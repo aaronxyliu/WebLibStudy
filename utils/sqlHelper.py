@@ -1110,6 +1110,26 @@ class ConnDatabase:
             self.connection.rollback()
             raise MySQLdb.Error(f"Failed to add column: {e}") from e
         
+    def drop_column(self, table_name: str, column_name: str,) -> bool:
+        """Drop a column in the table.
+        
+        Args:
+            table_name: Name of the table to modify
+            column_name: Name of the column to drop
+        
+        Returns:
+            bool: True if column was dropped
+        """
+        if column_name not in self.show_columns(table_name):
+            # Do not need to drop if not exist
+            return True
+        try:
+            self.execute(f"ALTER TABLE `{table_name}` DROP COLUMN `{column_name}`")
+            return True
+        except MySQLdb.Error as e:
+            self.connection.rollback()
+            raise MySQLdb.Error(f"Failed to drop column: {e}") from e
+
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Ensure resources are closed when exiting the context."""
         self.close()

@@ -51,8 +51,10 @@ if __name__ == '__main__':
         
         rank = 1
         for version_tag in version_list:
+            hits = 0
             data = reader.read_jsDelivr(libname, "npm", version_tag, "year")
-            hits = data['hits']['total']
+            if data:
+                hits = data['hits']['total']
             db2.upsert(libname, data={
                 'version': version_tag,
                 'jsDelivr rank': rank,

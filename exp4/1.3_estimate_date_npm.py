@@ -27,8 +27,6 @@ db2 = ConnDatabase('version_npm')
 reader = GitHubAPIReader(logger=logger)
 
 LIB_TABLE = 'libs_cdnjs_all_4_20u'
-TAG_TABLE = 'tags_5_11'
-
 
 def estimate_missing_dates(dates: List[Optional[str]], created_date: str, last_update_date: str) -> Dict[int, str]:
     # EXAMPLE INPUT:
@@ -103,17 +101,21 @@ def estimate_missing_dates(dates: List[Optional[str]], created_date: str, last_u
 
 
 if __name__ == '__main__':
-    libs = db2.show_tables()
-    for i, libname in enumerate(libs):
-        libentry = db.select_one(LIB_TABLE, ["github"], condition="`libname`=%s", condition_values=(libname,))
-        github_direct = libentry['github'][11:]
+    libs = db.select_all(LIB_TABLE, ['npm', 'github'], condition='`npm` IS NOT NULL')
+    for i, libentry in enumerate(libs):
+        npm_name, github_direct = libentry['npm'], libentry['github'][11:]
+        if npm_name not in db2.show_tables():
+            logger.warning(f"Failed to retrieve the version information of {npm_name} from database 'version_npm'.")
+            continue
+        if 'tag date' not in db2.show_columns(npm_name):
+            logger.warning(f"Table {npm_name} does not have the column `tag date`.")
+            continue
+        if db2.entry_count(npm_name, condition="`tag date` IS NULL AND `estimate date` IS NULL") == 0:
+            # Do not need to induce, skip
+            continue
+
         github_api_url = f'https://api.github.com/repos/{github_direct}'
         repo_info, should_stop = reader.read_url(github_api_url)
-
-        res = db2.fetchone(f'SELECT COUNT(*) FROM {libname} WHERE `date` IS NONE;')
-        if res[0] == 0:
-            logger.info(f"({i}/{len(libs)}) {libname} table does not need estimation.")
-            continue
 
         if should_stop:
             exit(0)
@@ -130,10 +132,10 @@ if __name__ == '__main__':
 
         version_list = []
         date_list = []
-        version_entries = db2.select_all(libname, ['version', 'date'])
+        version_entries = db2.select_all(npm_name, ['version', 'tag date'])
         for version_entry in version_entries:
             version_list.append(version_entry['version'])
-            date_str = str(version_entry['date'])
+            date_str = str(version_entry['tag date'])
             if date_str == 'None':
                 date_list.append(None)
             else:
@@ -141,12 +143,12 @@ if __name__ == '__main__':
 
         estimate_dict = estimate_missing_dates(date_list, created, updated)
         for index, estimate_date in estimate_dict.items():
-            db2.update(libname, 
+            db2.update(npm_name, 
                        data={'estimate date': estimate_date}, 
                        condition='`version`=%s', 
                        condition_values=(version_list[index],))
 
-        logger.info(f"({i}/{len(libs)}) {libname} table is updated. Estimated {len(estimate_dict)} dates.")
+        logger.info(f"({i}/{len(libs)}) {npm_name} table is updated. Estimated {len(estimate_dict)} dates.")
         logger.leftTimeEstimator(len(libs) - i)
 
     db.close()
