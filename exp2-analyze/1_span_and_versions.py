@@ -74,10 +74,18 @@ if __name__ == '__main__':
                 first_version = version
                 first_version_date = vdate
 
+            if latest_version_date < vdate:
+                latest_version = version
+                latest_version_date = vdate
+
             if first_version_date > vdate:
                 first_version = version
                 first_version_date = vdate
-                
+
+        for j, entry in enumerate(res):
+            version, hits, tag_date, e_date = entry[0], entry[1], entry[2], entry[3]
+            vdate = tag_date or e_date
+
             total_hits += hits
             distance_to_current += (current_time - vdate).days * hits
             distance_to_latest += (latest_version_date - vdate).days * hits

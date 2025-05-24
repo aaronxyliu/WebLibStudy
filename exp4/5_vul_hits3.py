@@ -1,6 +1,5 @@
 # Calculate the vulnerable hits number for each severity
 
-import os
 from packaging import version
 from packaging.specifiers import SpecifierSet
 import re
@@ -8,7 +7,6 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from dotenv import load_dotenv
-from datetime import datetime
 load_dotenv()
 import json
 import sys

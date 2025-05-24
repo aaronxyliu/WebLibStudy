@@ -252,6 +252,7 @@ class commonReader:
             self.logger = default_logger
         self.debug = debug
 
+
     def read_jsDelivr(self, libname:str, source:str, version_tag:str=None, period:str=None, stats:bool = True):
         """
         Read statistics content from jsDelivr API.
@@ -278,32 +279,33 @@ class commonReader:
         if period:
             base_url += f"?period={period}"
 
-        if self.debug:
-            self.logger.debug(f'Visit: {base_url}')
-        req = Request(
-            url=base_url,
-            headers={'User-Agent': 'Mozilla/5.0'}
-        )
-        
-        try:
-            with urlopen(req, timeout=10) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                return data
-        except KeyboardInterrupt:
-            self.logger.info("Request interrupted by user")
-            return None
-        except Exception as e:
-            self.logger.warning(f"Error processing {libname}: {e}")
-        
-        return None
+        return self.read_url(base_url)
     
-    def read_npm(self, libname:str):
-        base_url = f"https://registry.npmjs.org/{libname}"
 
+    def read_npm(self, libname:str):
+        return self.read_url(f"https://registry.npmjs.org/{libname}")
+
+
+    def read_cdnjs(self, libname:str):
+        return self.read_url(f'https://api.cdnjs.com/libraries/{libname}')
+    
+
+    def read_url(self, url: str) -> object:
+        """
+        Read content from a URL with error handling.
+        
+        Args:
+            url: The URL to read
+            
+        Returns:
+            Tuple of (response_data, should_stop)
+            response_data: Parsed JSON response or None if failed
+            should_stop: True if we should stop making requests (permanent failure)
+        """
         if self.debug:
-            self.logger.debug(f'Visit: {base_url}')
+            self.logger.debug(f'Visit: {url}')
         req = Request(
-            url=base_url,
+            url=url,
             headers={'User-Agent': 'Mozilla/5.0'}
         )
         try:
@@ -314,6 +316,6 @@ class commonReader:
             self.logger.info("Request interrupted by user")
             return None
         except Exception as e:
-            self.logger.warning(f"Error processing {libname}: {e}")
+            self.logger.warning(f"Error visiting {url}: {e}")
         
         return None
